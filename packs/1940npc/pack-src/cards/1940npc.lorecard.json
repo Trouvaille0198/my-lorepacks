@@ -199,6 +199,10 @@
   "variables": [
     {
       "id": "fear",
+      "labels": {
+        "zh": "恐惧",
+        "en": "Fear"
+      },
       "kind": "number",
       "default": 0,
       "minimum": 0,
@@ -207,6 +211,10 @@
     },
     {
       "id": "fog",
+      "labels": {
+        "zh": "雾浓度",
+        "en": "Fog"
+      },
       "kind": "number",
       "default": 3,
       "minimum": 0,
@@ -215,6 +223,10 @@
     },
     {
       "id": "phase",
+      "labels": {
+        "zh": "阶段",
+        "en": "Phase"
+      },
       "kind": "enum",
       "default": "开场",
       "description": "模组当前叙事阶段。",
@@ -227,6 +239,10 @@
     },
     {
       "id": "evidence",
+      "labels": {
+        "zh": "证据",
+        "en": "Evidence"
+      },
       "kind": "number",
       "default": 0,
       "minimum": 0,
