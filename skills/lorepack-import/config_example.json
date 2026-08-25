@@ -1,0 +1,12 @@
+{
+  "engine_repo": "/home/melon/pros/loreweaver",
+  "module_source_dir": "/home/melon/loreweaver-data-local/modules",
+  "lorepacks_repo": "/home/melon/pros/my-lorepacks",
+  "default_branch": "main",
+  "_help": {
+    "engine_repo": "loreweaver 引擎仓库路径（构建 .lwpack 用：python -m app --pack）。需要在别的机器执行时改成那台机器的路径",
+    "module_source_dir": "引擎数据目录下的 modules/ 目录，存放生成的 *.pack-src（Docker 部署通常在 <data_dir>/modules，如 ~/loreweaver-data-local/modules）",
+    "lorepacks_repo": "my-lorepacks 内容包仓库路径（目标）",
+    "default_branch": "推送的目标分支，默认 main"
+  }
+}
