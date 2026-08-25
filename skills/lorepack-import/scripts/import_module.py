@@ -185,6 +185,7 @@ def archive(cfg: dict, pack_id: str, *, force: bool) -> None:
     dist = target / "dist" / f"{pack_id}-{version}.lwpack"
     existing = list((src_dir).glob(f"{pack_id}-*.lwpack"))
     if existing:
+        dist.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(existing[0], dist)
         print(f"  使用现有 .lwpack -> {dist}")
     else:
