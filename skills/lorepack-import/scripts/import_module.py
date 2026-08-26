@@ -120,7 +120,41 @@ def build_lwpack(cfg: dict, pack_id: str, pack_src: Path, out: Path) -> None:
     )
 
 
-def write_readme(pack_id: str, pack_src: Path, out: Path) -> None:
+_ART_KIND_LABELS = [("cover", "封面"), ("scenes", "场景"), ("npcs", "NPC"), ("items", "物品"), ("pregens", "调查员")]
+
+
+def _skill_display_name(skill_dir: Path) -> str:
+    """SKILL.md frontmatter 的 name（如「南洋苍凉诡谲」），取不到则回退目录名。"""
+    md = skill_dir / "SKILL.md"
+    if md.is_file():
+        m = re.search(r"^name:\s*['\"]?([^'\"]+?)['\"]?\s*$", md.read_text(encoding="utf-8"), re.MULTILINE)
+        if m:
+            return m.group(1).strip()
+    return skill_dir.name
+
+
+def _art_detail(pack_src: Path) -> str:
+    """按 assets 路径分类统计配图明细，如「12 张（封面 + 2 场景 + 4 NPC + 1 物品 + 6 调查员）」。
+    分类不出时回退为纯张数。"""
+    manifest = pack_src / "pack.yaml"
+    if manifest.is_file():
+        paths = re.findall(r"path:\s*(\S+)", manifest.read_text(encoding="utf-8"))
+    else:
+        paths = [p.name for p in (pack_src / "assets").glob("*")] if (pack_src / "assets").is_dir() else []
+    if not paths:
+        return "0 张"
+    counts = {kind: 0 for kind, _ in _ART_KIND_LABELS}
+    for p in paths:
+        base = Path(p).name
+        for kind, _ in _ART_KIND_LABELS:
+            if f"-{kind}-" in base:
+                counts[kind] += 1
+                break
+    detail = " + ".join(f"{counts[kind]} {label}" for kind, label in _ART_KIND_LABELS if counts[kind])
+    return f"{len(paths)} 张（{detail}）" if detail else f"{len(paths)} 张"
+
+
+def write_readme(pack_id: str, pack_src: Path, out: Path, version: str) -> None:
     cards = list((pack_src / "cards").glob("*.lorecard.json"))
     if not cards:
         sys.exit(f"{pack_id}: pack-src 里没有 cards/*.lorecard.json")
@@ -135,8 +169,8 @@ def write_readme(pack_id: str, pack_src: Path, out: Path) -> None:
     from collections import Counter
 
     scope = Counter(str(i.get("scope")) for i in items if isinstance(i, dict))
-    assets = len(list((pack_src / "assets").glob("*.png"))) if (pack_src / "assets").is_dir() else 0
-    skills = [d.name for d in (pack_src / "skills").glob("*") if d.is_dir()] if (pack_src / "skills").is_dir() else []
+    art = _art_detail(pack_src)
+    skills = [_skill_display_name(d) for d in (pack_src / "skills").glob("*") if d.is_dir()] if (pack_src / "skills").is_dir() else []
 
     lines = [
         f"# {name}（{pack_id}）",
@@ -152,16 +186,15 @@ def write_readme(pack_id: str, pack_src: Path, out: Path) -> None:
         f"- **预建调查员**：{len(pregens)} 名（{'、'.join(pregens)}）" if pregens else f"- **预建调查员**：{len(pregens)} 名",
     ]
     if items:
-        parts = [f"{len(items)} 件"]
-        if scope.get("universal"):
-            parts.append(f"{scope['universal']} 件通用")
-        if scope.get("module"):
-            parts.append(f"{scope['module']} 件剧情")
-        lines.append(f"- **物品**：{'（'.join(parts[:1])}" + (f"，{' / '.join(parts[1:])}" if len(parts) > 1 else "") + "）")
-    lines.append(f"- **配图**：{assets} 张")
+        scope_parts = [f"{scope[k]} 件{label}" for k, label in (("universal", "通用"), ("module", "剧情")) if scope.get(k)]
+        line = f"- **物品**：{len(items)} 件"
+        if scope_parts:
+            line += f"（{' + '.join(scope_parts)}）"
+        lines.append(line)
+    lines.append(f"- **配图**：{art}")
     if skills:
         lines.append(f"- **KP 技能**：{'、'.join(skills)}")
-    lines += ["", "## 安装", "", "```", ".pack install gh:Trouvaille0198/my-lorepacks@<version>", "```", ""]
+    lines += ["", "## 安装", "", "```", f".pack install gh:Trouvaille0198/my-lorepacks@{version}", "```", ""]
     out.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -193,7 +226,7 @@ def archive(cfg: dict, pack_id: str, *, force: bool) -> None:
         build_lwpack(cfg, pack_id, target / "pack-src", dist)
 
     print(f"[{pack_id}] 写 README")
-    write_readme(pack_id, target / "pack-src", target / "README.md")
+    write_readme(pack_id, target / "pack-src", target / "README.md", version)
 
     branch = cfg.get("default_branch", "main")
     print(f"[{pack_id}] commit + push")
