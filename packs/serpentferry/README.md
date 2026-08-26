@@ -9,12 +9,12 @@
 - **世界设定（worldbook）**：20 条
 - **类型变量**：4 个进度追踪器
 - **预建调查员**：6 名（林文远、刘阿福、苏月娘、陈少卿、赵展鹏、慧清）
-- **物品**：16 件，8 件通用 / 8 件剧情）
+- **物品**：16 件（8 件通用 + 8 件剧情）
 - **配图**：12 张
-- **KP 技能**：skill-f40a2e67
+- **KP 技能**：南洋苍凉诡谲
 
 ## 安装
 
 ```
-.pack install gh:Trouvaille0198/my-lorepacks@<version>
+.pack install gh:Trouvaille0198/my-lorepacks@0.1.0
 ```

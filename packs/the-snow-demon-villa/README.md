@@ -9,12 +9,12 @@
 - **世界设定（worldbook）**：24 条
 - **类型变量**：4 个进度追踪器
 - **预建调查员**：6 名（千草理沙、古川一雄、近藤正人、神崎祥子、藤原高志、林修）
-- **物品**：20 件，11 件通用 / 9 件剧情）
+- **物品**：20 件（11 件通用 + 9 件剧情）
 - **配图**：12 张
-- **KP 技能**：skill-c2750d50
+- **KP 技能**：日式怪谈暴风雪山庄
 
 ## 安装
 
 ```
-.pack install gh:Trouvaille0198/my-lorepacks@<version>
+.pack install gh:Trouvaille0198/my-lorepacks@0.1.0
 ```
