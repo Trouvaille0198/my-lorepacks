@@ -84,6 +84,34 @@ python3 scripts/import_module.py --all
 
 - **路径全部来自 config.json**——在别的机器/别的位置执行时，先改 config.json，不要改脚本
 - pack-src 里有 `assets/`（配图）、`cards/*.lorecard.json`、`skills/`、`pack.yaml`，全部复制
-- README 的安装命令用 `gh:Trouvaille0198/my-lorepacks@<version>`（GitHub release 分发，release 需另行打）
-- 已归档的模组（`packs/<id>/` 已存在）会被跳过，除非显式传 `--force`
-- 引擎数据目录里被中断的生成（有 pack-src 但无 .lwpack）也可以入库——脚本会先构建
+- README 的安装命令用 `gh:Trouvaille0198/my-lorepacks@<version>`（GitHub release 分发，`--release` 参数自动发布）
+
+## 实战要点
+
+### 数据源优先用 Docker 容器里的完整版
+
+引擎 Docker 部署时，配图已生成的完整模组在容器 `/data/packs/<id>@<version>/`，本机 `modules/` 里的 `.pack-src` 可能是配图前的旧版（没有 `assets/`）。配置 `docker_container` 后脚本优先从容器取；容器包目录里没有 `skills/`——KP 技能装在 `/data/skills/<skill-id>/`，脚本按 pack.yaml 的 `contents.skills` 声明从容器补齐，sha256 必须与声明一致（用 `sha256sum` 核对）。
+
+### pack.yaml 是 forge 产物时先清洗成 author 侧格式
+
+打包器（`core/pack.py`）对 author 侧 manifest 拒绝三样，forge 生成的 pack.yaml 全中：
+
+- `contents.cards` 里的 `kind:` 声明——卡类型在打包时按真实载荷检测，author 侧只能写纯路径（或 `{path, notes}`）
+- `files:` 段——打包时自动生成
+- `trust:` 段——打包时自动生成
+
+`assets` 的 `sha256`/`size`/`mime`/`title` 可以留。不删这三样 `python -m app --pack` 直接报错。`--force` 重入库时脚本会再次清洗。
+
+### 超过 100MB 的 .lwpack 走 Git LFS
+
+GitHub 单文件上限 100MB，超出后 push 被 `pre-receive hook declined` 拒绝（不显示具体原因）。仓库根要有 `.gitattributes` 跟踪 `*.lwpack`，大文件以 LFS pointer 入库。git-lfs 没装时从 GitHub release 下载官方二进制放到 `~/.local/bin`（免 sudo），`git lfs install --skip-repo` 即可。脚本会在 commit 前确保 LFS 已配置。
+
+### release 是分发通道
+
+`.pack install gh:owner/repo@<tag>` 走的是 GitHub release asset（匿名 API 解析该 release 的 `*.lwpack`），不是 git 仓库里的文件。tag 必须与 `@` 后面的字符串精确匹配——README 写 `@0.1.0` 时 release tag 就叫 `0.1.0`。用 `--release` 参数发布：
+
+```bash
+python3 scripts/import_module.py <pack-id> --release
+```
+
+gh 登录用 `gh auth login --hostname github.com --git-protocol ssh --web --skip-ssh-key`，`--skip-ssh-key` 避免 SSH key 上传交互卡住（device code 流程在无 TTY 后台时输出到 stderr，需重定向文件读取）。

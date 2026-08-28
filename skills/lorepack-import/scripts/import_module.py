@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """lorepack-import — archive loreweaver-generated modules into my-lorepacks.
 
-Scans the engine's `modules/` dir for `*.pack-src`, copies each into
-`packs/<id>/pack-src`, builds the `.lwpack` into `dist/` (when missing), writes
-a README from the lorecard, then commits and pushes the repo.
+Scans the engine's `modules/` dir (or a Docker container's `/data/packs/`)
+for module sources, copies each into `packs/<id>/pack-src`, cleans the forge
+manifest into author form, builds the `.lwpack` into `dist/`, writes a README
+from the lorecard, then commits and pushes the repo. `--release` publishes the
+built `.lwpack` as a GitHub release asset (`gh:` installs resolve through it).
 
 Paths come from `config.json` next to SKILL.md — run anywhere, adjust config.
 
 Usage:
     import_module.py --scan                 # list unarchived modules
     import_module.py <pack-id> [--force]    # archive one module
+    import_module.py <pack-id> --release    # archive and publish a GitHub release
     import_module.py --all [--force]        # archive every unarchived module
 """
 
@@ -21,6 +24,8 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+import yaml
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 
@@ -36,18 +41,26 @@ def load_config() -> dict:
 
 
 def run(cmd: list[str], cwd: Path, *, check: bool = True) -> str:
-    result = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True)
+    result = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, check=False)
     if check and result.returncode != 0:
         sys.exit(f"命令失败: {' '.join(cmd)}\n{result.stderr[-1500:]}")
     return result.stdout.strip()
 
 
 def scan(cfg: dict) -> list[str]:
-    src = Path(cfg["module_source_dir"])
-    if not src.is_dir():
-        sys.exit(f"module_source_dir 不存在: {src}（检查 config.json）")
+    container = cfg.get("docker_container")
+    if container:
+        out = run(
+            ["docker", "exec", container, "sh", "-c", "ls /data/packs/"],
+            Path.cwd(), check=False,
+        )
+        found = sorted({p.split("@")[0] for p in out.split() if "@" in p})
+    else:
+        src = Path(cfg["module_source_dir"])
+        if not src.is_dir():
+            sys.exit(f"module_source_dir 不存在: {src}（检查 config.json）")
+        found = sorted(p.stem for p in src.glob("*.pack-src"))
     packs = Path(cfg["lorepacks_repo"]) / "packs"
-    found = sorted(p.stem for p in src.glob("*.pack-src"))
     archived = {p.name for p in packs.glob("*") if p.is_dir()}
     return [m for m in found if m not in archived]
 
@@ -59,6 +72,40 @@ def pack_version(pack_src: Path) -> str:
         if m:
             return m.group(1)
     return "0.1.0"
+
+
+def clean_manifest(pack_src: Path) -> None:
+    """把 forge 产物 pack.yaml 清洗成 author 侧格式：删 `files`/`trust`（打包时
+    生成）、`contents.cards` 去掉 `kind`（打包时按真实载荷检测）。asset 的
+    sha256/size/mime/title 可保留。"""
+    manifest = pack_src / "pack.yaml"
+    if not manifest.is_file():
+        return
+    raw = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        return
+    changed = False
+    for key in ("files", "trust"):
+        if key in raw:
+            del raw[key]
+            changed = True
+    contents = raw.get("contents")
+    cards = contents.get("cards") if isinstance(contents, dict) else None
+    if isinstance(cards, list):
+        cleaned: list = []
+        for entry in cards:
+            if isinstance(entry, dict):
+                cleaned.append(entry.get("path"))
+                changed = True
+            else:
+                cleaned.append(entry)
+        if changed and contents is not None:
+            contents["cards"] = cleaned
+    if changed:
+        manifest.write_text(
+            yaml.safe_dump(raw, allow_unicode=True, sort_keys=False), encoding="utf-8"
+        )
+        print("  pack.yaml 已清洗为 author 侧格式（删 files/trust、cards 去 kind）")
 
 
 def ensure_manifest(pack_src: Path, pack_id: str) -> Path:
@@ -100,6 +147,56 @@ def ensure_manifest(pack_src: Path, pack_id: str) -> Path:
     return manifest
 
 
+def copy_pack_src(cfg: dict, pack_id: str, target: Path) -> None:
+    """把 pack-src 复制到 target/pack-src：配置了 docker_container 时优先从容器
+    `/data/packs/<id>@<version>/` 取（配图后完整版），否则从本地 modules/ 取。
+    forge 的 `media-jobs.json` 是运行时状态，不复制。"""
+    container = cfg.get("docker_container")
+    if container:
+        out = run(
+            ["docker", "exec", container, "sh", "-c", f"ls -d /data/packs/{pack_id}@* 2>/dev/null"],
+            Path.cwd(), check=False,
+        )
+        if not out:
+            sys.exit(f"{pack_id}: 容器 {container} 里没有 /data/packs/{pack_id}@*")
+        src_dir = out.splitlines()[0].strip()
+        print(f"  从容器复制 pack-src（{src_dir}）")
+        run(["docker", "cp", f"{container}:{src_dir}/.", str(target / "pack-src")], Path.cwd())
+    else:
+        src_dir = Path(cfg["module_source_dir"]) / f"{pack_id}.pack-src"
+        if not src_dir.is_dir():
+            sys.exit(f"{pack_id}: 源 pack-src 不存在 {src_dir}")
+        print(f"  复制 pack-src（{src_dir}）")
+        shutil.copytree(src_dir, target / "pack-src")
+    runtime = target / "pack-src" / "media-jobs.json"
+    if runtime.exists():
+        runtime.unlink()
+
+
+def fill_skills_from_container(cfg: dict, pack_src: Path) -> None:
+    """pack.yaml 声明了 contents.skills 但 pack-src 里没有 skills/ 目录时，从容器
+    `/data/skills/<id>/` 补齐（运行时技能装在数据目录，不在包目录里）。"""
+    container = cfg.get("docker_container")
+    manifest = pack_src / "pack.yaml"
+    if not container or not manifest.is_file():
+        return
+    raw = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+    contents = raw.get("contents") or {}
+    for skill_id in contents.get("skills") or []:
+        sid = str(skill_id).strip("/").split("/")[-1]
+        dst = pack_src / "skills" / sid
+        if dst.exists():
+            continue
+        out = run(
+            ["docker", "exec", container, "sh", "-c", f"ls /data/skills/{sid}/SKILL.md 2>/dev/null"],
+            Path.cwd(), check=False,
+        )
+        if out:
+            dst.mkdir(parents=True, exist_ok=True)
+            run(["docker", "cp", f"{container}:/data/skills/{sid}/SKILL.md", str(dst / "SKILL.md")], Path.cwd())
+            print(f"  从容器补齐技能 {sid}")
+
+
 def build_lwpack(cfg: dict, pack_id: str, pack_src: Path, out: Path) -> None:
     engine = Path(cfg["engine_repo"])
     if not (engine / ".venv" / "bin" / "python").exists():
@@ -118,6 +215,20 @@ def build_lwpack(cfg: dict, pack_id: str, pack_src: Path, out: Path) -> None:
         ],
         engine,
     )
+
+
+def ensure_lfs(repo: Path) -> None:
+    """仓库根没有跟踪 *.lwpack 时初始化 Git LFS。超过 GitHub 100MB 单文件上限的
+    .lwpack 必须走 LFS，否则 push 被 pre-receive hook 拒绝。"""
+    attrs = repo / ".gitattributes"
+    if attrs.is_file() and "*.lwpack" in attrs.read_text(encoding="utf-8"):
+        return
+    if shutil.which("git-lfs") is None:
+        print("  ⚠ 未安装 git-lfs：>100MB 的 .lwpack 推不上 GitHub（pre-receive hook 拒绝）")
+        print("    安装：从 https://github.com/git-lfs/git-lfs/releases 下载 linux-amd64 二进制放 ~/.local/bin")
+        return
+    run(["git", "lfs", "install", "--skip-repo"], repo)
+    run(["git", "lfs", "track", "*.lwpack"], repo)
 
 
 _ART_KIND_LABELS = [("cover", "封面"), ("scenes", "场景"), ("npcs", "NPC"), ("items", "物品"), ("pregens", "调查员")]
@@ -198,12 +309,22 @@ def write_readme(pack_id: str, pack_src: Path, out: Path, version: str) -> None:
     out.write_text("\n".join(lines), encoding="utf-8")
 
 
-def archive(cfg: dict, pack_id: str, *, force: bool) -> None:
-    src_dir = Path(cfg["module_source_dir"])
+def publish_release(cfg: dict, pack_id: str, version: str) -> None:
     repo = Path(cfg["lorepacks_repo"])
-    pack_src = src_dir / f"{pack_id}.pack-src"
-    if not pack_src.is_dir():
-        sys.exit(f"{pack_id}: 源 pack-src 不存在 {pack_src}")
+    dist = repo / "packs" / pack_id / "dist" / f"{pack_id}-{version}.lwpack"
+    if not dist.is_file():
+        sys.exit(f"{pack_id}: 没有 {dist}，无法发布 release")
+    if shutil.which("gh") is None:
+        sys.exit("未安装 gh CLI（发布 release 需要）。登录：gh auth login --web --skip-ssh-key")
+    run(["git", "add", "-A"], repo)
+    run(["git", "commit", "-m", f"release {pack_id} v{version}（dist .lwpack）", "--allow-empty"], repo)
+    run(["git", "push", "origin", cfg.get("default_branch", "main")], repo)
+    print(f"[{pack_id}] 发布 GitHub release {version}")
+    run(["gh", "release", "create", version, str(dist), "--repo", "Trouvaille0198/my-lorepacks"], repo)
+
+
+def archive(cfg: dict, pack_id: str, *, force: bool) -> None:
+    repo = Path(cfg["lorepacks_repo"])
     target = repo / "packs" / pack_id
     if target.exists() and not force:
         print(f"跳过 {pack_id}（已归档，--force 可覆盖）")
@@ -212,22 +333,22 @@ def archive(cfg: dict, pack_id: str, *, force: bool) -> None:
     print(f"[{pack_id}] 复制 pack-src")
     if target.exists():
         shutil.rmtree(target)
-    shutil.copytree(pack_src, target / "pack-src")
+    target.mkdir(parents=True)
+    copy_pack_src(cfg, pack_id, target)
 
-    version = pack_version(target / "pack-src")
+    pack_src = target / "pack-src"
+    ensure_manifest(pack_src, pack_id)
+    clean_manifest(pack_src)
+    fill_skills_from_container(cfg, pack_src)
+
+    version = pack_version(pack_src)
     dist = target / "dist" / f"{pack_id}-{version}.lwpack"
-    existing = list((src_dir).glob(f"{pack_id}-*.lwpack"))
-    if existing:
-        dist.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(existing[0], dist)
-        print(f"  使用现有 .lwpack -> {dist}")
-    else:
-        ensure_manifest(target / "pack-src", pack_id)
-        build_lwpack(cfg, pack_id, target / "pack-src", dist)
+    build_lwpack(cfg, pack_id, pack_src, dist)
 
     print(f"[{pack_id}] 写 README")
-    write_readme(pack_id, target / "pack-src", target / "README.md", version)
+    write_readme(pack_id, pack_src, target / "README.md", version)
 
+    ensure_lfs(repo)
     branch = cfg.get("default_branch", "main")
     print(f"[{pack_id}] commit + push")
     run(["git", "add", "-A"], repo)
@@ -250,6 +371,7 @@ def main() -> None:
                 print(f"  - {m}")
         return
     force = "--force" in args
+    release = "--release" in args
     ids = [a for a in args if not a.startswith("--")]
     if "--all" in args:
         ids = scan(cfg)
@@ -260,6 +382,9 @@ def main() -> None:
         sys.exit(__doc__ or "usage: import_module.py <pack-id> | --all | --scan")
     for pack_id in ids:
         archive(cfg, pack_id, force=force)
+        if release:
+            version = pack_version(Path(cfg["lorepacks_repo"]) / "packs" / pack_id / "pack-src")
+            publish_release(cfg, pack_id, version)
 
 
 if __name__ == "__main__":
