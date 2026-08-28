@@ -1,3 +1,2 @@
-
-# lorepack-import skill 用户配置（不提交）
-skills/lorepack-import/config.json
+__pycache__/
+*.pyc
