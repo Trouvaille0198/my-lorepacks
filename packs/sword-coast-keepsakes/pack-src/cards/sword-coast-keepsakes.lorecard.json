@@ -22,6 +22,7 @@
     "探索",
     "1-2级"
   ],
+  "visual_world": "D&D 5e 被遗忘的国度（Forgotten Realms）剑湾海岸，费伦的中世纪剑与魔法奇幻；背景是深水城南方的滨海渔镇，居民包含人类、精灵、半精灵、矮人与半兽人；白墙红瓦、石板路、木制码头、地方神殿与海港集市；温暖怀旧、写实手绘数字水彩，暖金夕照与灰蓝海色。",
   "worldbook": [
     {
       "id": "lore-clamshell-bay",
@@ -328,7 +329,7 @@
       ],
       "secret": false,
       "category": "clue",
-      "image": "module-sword-coast-keepsakes-clue-2.png"
+      "image": "module-sword-coast-keepsakes-clue-7.png"
     },
     {
       "id": "clue-cub-nest",

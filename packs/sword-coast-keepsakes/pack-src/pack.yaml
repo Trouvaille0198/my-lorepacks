@@ -16,13 +16,13 @@ assets:
   title: 商路
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-scenes-4.png
-  sha256: 68d79cdaee38829892277334a846d229d7a263a1f6ac227425993b151be6a6c2
-  size: 6801539
+  sha256: 418e45039e395ae28d767710c7215c9e675ef62f0f74b13662481211195c351c
+  size: 3127030
   title: 海崖
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-npcs-1.png
-  sha256: 13269c1e5329d259f1d601f9550adc62aac0f072da86fea7a22e2d13990407db
-  size: 5986706
+  sha256: 28ccfa233431f64f1811fbd7000d8bab00361fea6d92c9fc0a019e94234b2ed0
+  size: 2973720
   title: 玛拉
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-npcs-2.png
@@ -31,18 +31,18 @@ assets:
   title: 小铃铛
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-npcs-3.png
-  sha256: c849f8b40a88ca2e184f578b503dbfa1766584c86de3e3269386f68c86c07003
-  size: 6277227
+  sha256: a99d6114916efb1af08da0a1c96a2ac8cfe179f361e7d085147b3eeae3007ea5
+  size: 2946853
   title: 阿库
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-npcs-4.png
-  sha256: bd24818c0c2e3ec80bb65d66b18c1eec3850bd25126071239a9424194fbfba09
-  size: 3007735
+  sha256: 386eec6855cd14e9d1e7dbc7e78ff73b5609bb2107b9cdedbab91785b5969ded
+  size: 3019480
   title: 铁木
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-npcs-5.png
-  sha256: b57ac89bf47193ad36add864d32eb17fb0ba58f93322e4d85e249e5515120780
-  size: 6159727
+  sha256: 8d978b085470a28305189ddbd34bc42e2fbec41b4e985530a96079e901ecabf5
+  size: 2778797
   title: 柳溪
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-npcs-6.png
@@ -61,8 +61,8 @@ assets:
   title: 爪痕
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-clue-4.png
-  sha256: fa0b3f92ca93b2deab10e0e23a71116dd026bf6c7a54bce67c8cdeb01fd59704
-  size: 2589013
+  sha256: 6337c49ef72e815708cc309e3f8e49c5a40f7e2745d56e5ff28ed738ad71c0bd
+  size: 3241279
   title: 足迹
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-clue-5.png
@@ -76,8 +76,8 @@ assets:
   title: 海巫
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-clue-7.png
-  sha256: b58b952ac7ca5e8dc93fd29e9760aa328fccb24a8c17130338d60e786ccf7ad0
-  size: 6209169
+  sha256: a7aa8d17c41b073187252967da543070e9ec94ecf940e0c8f415afb88a14f1b7
+  size: 2789917
   title: 格里芬
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-clue-8.png
@@ -116,8 +116,8 @@ assets:
   title: 受伤
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-scenes-2.png
-  sha256: 3e307a85d2306d261284b3578a85b99d7c38abb53fa211c1ddb38e0b3343e4b6
-  size: 3531435
+  sha256: 697763a5b9c8f0264358842d47c666a676676fcb40c4316c520999b4b632ab5b
+  size: 3181175
   title: 拾光节
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-pregens-2.png
@@ -131,8 +131,8 @@ assets:
   title: 佩妮·齿轮
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-pregens-5.png
-  sha256: c16643cca0e54a67af6c15954135e079286888534e75d7403c11bbf210120643
-  size: 2665846
+  sha256: 76c1d4f69cc84f927a5f20574800db6aefac69df48d7058059de131908d88260
+  size: 3043401
   title: 罗格·铁锅
 - mime: image/png
   path: assets/module-sword-coast-keepsakes-pregens-6.png
@@ -154,4 +154,4 @@ license: CC-BY-4.0
 manifest_version: 2
 name:
   en: 剑湾拾光集——贝壳湾的失窃信物
-version: 0.2.0
+version: 0.3.0
