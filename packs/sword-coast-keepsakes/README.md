@@ -17,5 +17,5 @@
 ## 安装
 
 ```
-.pack install gh:Trouvaille0198/my-lorepacks@0.1.0
+.pack install gh:Trouvaille0198/my-lorepacks@0.2.0
 ```
